@@ -119,7 +119,6 @@ class HopfieldNetwork:
             self.patterns = pattern.reshape(-1, 1)
         else:
             self.patterns = np.concatenate((self.patterns, pattern.reshape(-1, 1)), axis=1)
-        print("patterns", self.patterns)
 
     def get_random_pattern(self):
         return np.random.choice((-1, 1), self.n_neurons)
