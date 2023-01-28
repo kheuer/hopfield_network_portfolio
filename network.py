@@ -143,7 +143,12 @@ class HopfieldNetwork:
         return fig
 
     def visualize_weight_matrix(self):
-        self.visualize_array(self.weights)
+        fig = self.visualize_array(self.weights)
+        dummy = plt.figure()
+        new_manager = dummy.canvas.manager
+        new_manager.canvas.figure = fig
+        fig.set_canvas(new_manager.canvas)
+        fig.show()
 
     def visualize(self, pattern=None):
         if pattern is None:
