@@ -1,11 +1,10 @@
 import time
 import os
 import numpy as np
-import torch
-import torchvision
-from torch import Tensor, nn
+from sklearn.datasets import fetch_openml
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
+from PIL import Image
 
 import logging
 
@@ -14,7 +13,10 @@ logging.basicConfig(level=logging.NOTSET)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-dataset = torchvision.datasets.MNIST(os.getcwd() + "/files/MNIST/", train=True, download=True)
+# Load the MNIST dataset
+dataset = fetch_openml("mnist_784", version=1, parser="auto")
+images = dataset.data.values.reshape(-1, 28, 28)  # Reshape to 28x28
+labels = dataset.target.values
 
 
 class HopfieldNetwork:
@@ -23,7 +25,7 @@ class HopfieldNetwork:
         self.n_neurons = n_neurons
         sqrt = int(np.sqrt(n_neurons))
         self.shape = (sqrt, sqrt)
-        self.state = self.get_random_pattern()
+        self.set_random_pattern()
         self.weights = np.zeros((self.n_neurons, self.n_neurons))
         self.patterns = None
 
@@ -34,15 +36,16 @@ class HopfieldNetwork:
         return activation
 
     def update(self, i):
-        # update neurons at index i
+        # update neurons at index i and returns if ther neuron was exited
         if self.get_activation(i) >= 0:
             self.state[i] = 1
+            return False
         else:
             self.state[i] = -1
+            return True
 
     def run(self, steps):
         # without replacement
-        start = time.time()
         if steps < self.n_neurons:
             indices = np.random.choice(range(self.n_neurons), steps, replace=False)
         else:
@@ -51,7 +54,17 @@ class HopfieldNetwork:
             while i >= self.n_neurons:
                 i -= self.n_neurons
             self.update(i)
-        logger.debug(f"Made {steps} in {int(time.time() - start)} seconds.")
+
+    def make_n_changes(self, n_changes):
+        if n_changes <= 0:
+            return
+
+        n_changes_done = 0
+        while n_changes_done != n_changes:
+            if self.is_in_local_minima():
+                break
+            if self.update(np.random.randint(0, self.n_neurons)):
+                n_changes_done += 1
 
     def solve(self):
         start = time.time()
@@ -93,12 +106,18 @@ class HopfieldNetwork:
 
     def sanity_check(self, n_neurons):
         if n_neurons < 4:
-            raise ValueError(f"n_neurons provided is: {n_neurons} but must be at least 4")
+            raise ValueError(
+                f"n_neurons provided is: {n_neurons} but must be at least 4"
+            )
         sqrt = np.sqrt(n_neurons)
         if not sqrt.is_integer():
-            raise ValueError(f"n_neurons provided is: {n_neurons} but must be divisible by itself to an int")
+            raise ValueError(
+                f"n_neurons provided is: {n_neurons} but must be divisible by itself to an int"
+            )
         if n_neurons < 100:
-            logger.warning("We recommend to choose n_neurons to be >= 100 to ensure proper generation of characters.")
+            logger.warning(
+                "We recommend to choose n_neurons to be >= 100 to ensure proper generation of characters."
+            )
 
     def is_saved(self, pattern):
         if self.patterns is None:
@@ -118,18 +137,37 @@ class HopfieldNetwork:
         if self.patterns is None:
             self.patterns = pattern.reshape(-1, 1)
         else:
-            self.patterns = np.concatenate((self.patterns, pattern.reshape(-1, 1)), axis=1)
+            self.patterns = np.concatenate(
+                (self.patterns, pattern.reshape(-1, 1)), axis=1
+            )
 
     def get_random_pattern(self):
         return np.random.choice((-1, 1), self.n_neurons)
 
+    def set_random_pattern(self):
+        self.state = self.get_random_pattern()
+
+    def set_mutated_pattern(self):
+        current = np.copy(self.state)
+        for i, state in enumerate(current):
+            if np.random.random() < 0.05:
+                current[i] = 0 - current[i]
+        self.state = current
+
     def get_number_pattern(self, number):
+
+        # randomly choose an image
         while True:
-            img, n = dataset[np.random.randint(len(dataset))]
-            if n == number:
+            i = np.random.randint(len(labels))
+            if int(labels[i]) == number:
                 break
-        img = img.resize(self.shape)
-        array = np.asarray(img)
+
+        arr = images[i].astype(np.uint8)
+        img = Image.fromarray(arr)
+
+        resized_img = img.resize(self.shape)
+        array = np.array(resized_img)
+
         array = np.round(array / 255)
         array[array == 0] = -1
         return array.flatten()

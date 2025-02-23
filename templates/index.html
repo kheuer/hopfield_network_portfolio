@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hopfield Network</title>
+    <style>
+        /* Style for the main state image */
+        .main-image {
+            width: 90%;
+            /* Adjust width as needed */
+            max-width: 300px;
+            /* Limit the maximum width */
+            display: block;
+            /* Centering the image */
+        }
+
+        /* Style for each saved pattern image */
+        .saved-pattern {
+            width: 100px;
+            /* Set a fixed width for saved patterns */
+            height: auto;
+            /* Maintain aspect ratio */
+            margin: 5px;
+            /* Add some spacing */
+            display: inline-block;
+            /* Keep them inline */
+        }
+
+        /* Style for the container holding saved patterns */
+        .saved-patterns-container {
+            text-align: left;
+            /* Center the saved patterns */
+            margin-top: 20px;
+            /* Space above saved patterns */
+        }
+
+        /* Style for the slider */
+        .slider-container {
+            margin: 10px 0;
+        }
+
+        .slider {
+            width: 90%;
+            /* Adjust width as needed */
+            max-width: 300px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h2>Current Hopfield Network ({{ n_neurons }} Neurons)</h2>
+    <img class="main-image" src="data:image/png;base64,{{ pattern_image }}" alt="Network State" />
+
+
+    <div class="saved-patterns-container">
+        {% if saved_patterns %}
+        <h3>Saved Patterns:</h3>
+        {% for pattern in saved_patterns %}
+        <form action="/hopfield/" method="POST" style="display: inline;">
+            <input type="hidden" name="set_state_to_pattern" value="{{ loop.index - 1}}">
+            <button type="submit" style="border: none; background: none; padding: 0;">
+                <img class="saved-pattern" src="data:image/png;base64,{{ pattern }}" alt="Saved Pattern" />
+            </button>
+        </form>
+
+
+        {% endfor %}
+        <br>
+        You can set the current network state to a saved one by <strong>clicking on it</strong>.
+        <br>
+        <br>
+        {% else %}
+        No patterns saved yet, please <strong>save a state</strong> to the network using the buttons in the control
+        section.
+        <br>
+        <br>
+        {% endif %}
+    </div>
+
+    {% if is_stable%}
+    The Network is currently <strong>stable</strong> and cannot be advanced further.
+    {% else %}
+    The Network is currently <strong>unstable</strong> and can be advanced using the buttons in the control section.
+    {% endif%}
+
+
+    <h2>Control</h2>
+
+    <form method="POST" action="/hopfield/">
+        <label for="n_neurons">Number of Neurons: <span id="neurons_value">625</span></label><br>
+        <div class="slider-container">
+            <input type="range" id="n_neurons" name="n_neurons" class="slider" min="25" max="625" step="1" value="625"
+                oninput="updateNeuronValue(this.value)">
+
+        </div>
+        <button type="submit">Reset Network</button>
+    </form>
+
+    <h4>Save Number to Network:</h4>
+    <div>
+        {% for i in range(10) %}
+        <form method="POST" action="/hopfield/" style="display:inline;">
+            <input type="hidden" name="ch_selection" value="{{ i }}">
+            <button type="submit">{{ i }}</button>
+        </form>
+        {% endfor %}
+    </div>
+
+    <h4>Advance the Network</h4>
+    <div>
+        {% set step_values = [10, 100, 500, 1000] %}
+        {% for value in step_values %}
+        <form method="POST" action="/hopfield/" style="display:inline;">
+            <input type="hidden" name="n_steps" value="{{ value }}">
+            <button type="submit">Advance {{ value }} Step{{ 's' if value > 1 else '' }}</button>
+        </form>
+        {% endfor %}
+        <form method="POST" action="/hopfield/" style="display:inline;">
+            <input type="hidden" name="solve" value=true>
+            <button type="submit">Solve Model</button>
+        </form>
+    </div>
+
+    <h4>Change the networks current state</h4>
+    <div style="display: flex; gap: 10px;">
+        <form method="POST" action="/hopfield/">
+            <input type="hidden" name="randomize" value=true>
+            <button type="submit">Randomize State</button>
+        </form>
+        <form method="POST" action="/hopfield/">
+            <input type="hidden" name="mutate" value=true>
+            <button type="submit">Mutate State</button>
+        </form>
+    </div>
+
+
+    <script>
+        function updateNeuronValue(value) {
+            const neuronOptions = [81, 100, 121, 144, 169, 196, 225, 256, 289, 324, 361, 400, 441, 484, 529, 576, 625];
+            const closestValue = neuronOptions.reduce((prev, curr) => Math.abs(curr - value) < Math.abs(prev - value) ? curr : prev);
+            document.getElementById('neurons_value').innerText = closestValue;
+            document.getElementById('n_neurons').value = closestValue; // Set the value of the range input to the closest value
+        }
+
+        // Set the initial displayed value
+        updateNeuronValue(document.getElementById('n_neurons').value);
+
+    </script>
+</body>
+
+</html>
